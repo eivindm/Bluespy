@@ -6,16 +6,20 @@
 #
 
 
-my $found = {};
-my $name_mapping = {};
-my $found_when = {};
 
 use Net::Bluetooth;
 use strict;
 
-my $num_checked = 0;
 my $report_after = 4;
 my $leavelimit = 60*5;
+
+
+
+my $num_checked = 0;
+my $found = {};
+my $name_mapping = {};
+my $found_when = {};
+
 
 
 
@@ -36,7 +40,15 @@ sub read_names {
         if (m/^UNIT\s+([A-F0-9:]+)\s+(\w.*)$/) {
             $name_mapping->{$1} = $2;
         }
-        my ($key, $addr)          
+
+        if (m/^FIRSTREPORT\s+(\d+)\s*$/) {
+            $report_after = $1;
+            print "Will report after $report_after scans\n";
+        }
+        if (m/^LEAVELIMIT\s+(\d+)\s*$/) {
+            $leavelimit = $1;
+            print "Will report leaves after $leavelimit seconds abscense\n";
+        }
     }
     close FIL;
 }
@@ -54,7 +66,7 @@ sub scan {
         unless ($found->{$addr}) {
             $found->{$addr} = 1;
             add_unit($addr, $device_ref->{$addr});
-            push(@found_now, get_name($addr));
+            push(@found_now, get_name($addr)) unless (get_name($addr) =~ /unknown/i);
         } else {
             print "\tNo message, found before: $device_ref->{$addr} (".
               get_name($addr).")\n";
@@ -68,7 +80,7 @@ sub scan {
     
     foreach my $addr (keys %$found_when) {
         if (time() - $found_when->{$addr} > $leavelimit) {
-            push(@left_now, get_name($addr));  
+            push(@left_now, get_name($addr)) unless (get_name($addr) =~ /unknown/i);  
             delete $found_when->{$addr};
         }
     }
@@ -96,7 +108,8 @@ sub show_event{
     $msg =~ s/[^a-zA-Z0-9-_ :\(\),]//g;
 
     print "message: $msg\n";
-    system("kdialog --msgbox \"$msg\"");
+    system("kdialog --title \"Notification from Bluespy\" --passivepopup \"$msg\" 10");
+    #system("kdialog --msgbox \"$msg\"");
     
 }
 
@@ -127,4 +140,3 @@ sub add_unit {
 
 
 
-#kdialog --msgbox "Password correct.\n About to connect to server"
